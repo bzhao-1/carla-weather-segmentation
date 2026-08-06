@@ -1,123 +1,127 @@
-# Semantic Segmentation on CARLA Data for CV4AD Carleton College Senior Thesis 
-# Adapted from MIT ADE20K dataset in PyTorch
+# CARLA Weather-Robust Semantic Segmentation
 
+An academic computer-vision project that adapts [MIT CSAIL's semantic-segmentation-pytorch](https://github.com/CSAILVision/semantic-segmentation-pytorch) to study how weather affects road-scene segmentation in the CARLA simulator.
 
-### Contributers
+This repository is the implementation artifact from a Carleton College team capstone. It contains CARLA-specific data preparation, 29-class configurations, evaluation tooling, and experiments with mixed-weather fine-tuning. It is not presented as wholly original work: the model framework under `mit_semseg/` and much of the training infrastructure came from the upstream MIT repository. See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for the boundary between upstream and project work.
 
-| Name           | Email                 |
-| -------------- | --------------------- |
-| Ben Zhao       | benzhao90@gmail.com   |
-| Nathaniel Li   | lin@carleton.edu      |
-| Julian Tanguma | tangumaj@carleton.edu |
-| David Toledo   | toledod@carleton.edu  |
-| Ethan Masadde(Indirectly)  | masaddee@carleton.edu |
-| Josh Meier(Indirectly)    | meierj@carleton.edu   |
+![Foggy-day segmentation before and after mixed-weather fine-tuning](docs/fog-domain-adaptation.png)
 
+In the team's recorded fog experiment, mixed-weather fine-tuning increased mean intersection-over-union (mIoU) from **0.328 to 0.619**—an absolute gain of **0.291**. The dataset and trained checkpoints are not distributed in this repository, so the result is documented rather than claimed as a one-command reproduction.
 
+<p align="center">
+  <img src="docs/clear-day-demo.gif" alt="CARLA clear-day semantic-segmentation output" width="760">
+</p>
 
-## Contents
+## What the project does
 
-- [Description](#description)
-- [Background](#background)
-- [Instructions](#instructions)
-- [Reference](#reference)
+- Trains HRNetV2 + C1 and MobileNetV2 + PPM segmentation variants on CARLA images.
+- Evaluates 29 CARLA semantic classes across clear day, clear night, rainy day, and foggy day conditions.
+- Measures cross-weather degradation using pixel accuracy and class-level intersection-over-union.
+- Tests mixed-weather fine-tuning configurations, including 10% and 30% target-weather samples.
+- Produces side-by-side RGB, ground-truth, and predicted segmentation visualizations.
 
+## System overview
 
-## Description 
-This is a PyTorch implementation of semantic segmentation models on custom data from the CARLA simulator across 4 different weather scenarios. Each dataset contains 1995 total images and our results are benchmarked from an 80-10-10 split for training, testing, and validation. There are 29 classes based on the the semantic segmentation camera in CARLA:(https://carla.readthedocs.io/en/latest/ref_sensors/#semantic-segmentation-camera). 
-The implementation is adapted from the MIT ADE20K scene parsing dataset: 
-(http://sceneparsing.csail.mit.edu/).
-
-
-## Background
-### ADE20k
-ADE20K is the largest open source dataset for semantic segmentation and scene parsing, released by MIT Computer Vision team. Follow the link below to find the repository for their dataset and implementations on Caffe and Torch7:
-https://github.com/CSAILVision/sceneparsing
-### Our Project
-We use semantic segmentation as a means for understanding how computer vision is affected by weather in terms of how an autonomous vehicle perceives its surroundings. We trained the model on CARLA data with a HRNETV2 encoder. This was adpated from the configurations provided in the ADE20K source code. 
-
-Encoder:
-- HRNetV2
-
-
-Decoder:
-- C1 (one convolution module)
-
-
-### State-of-the-Art models
-- **HRNet** is a recently proposed model that retains high resolution representations throughout the model, without the traditional bottleneck design. It achieves the SOTA performance on a series of pixel labeling tasks. Please refer to [https://arxiv.org/abs/1904.04514](https://arxiv.org/abs/1904.04514) for details.
-
-
-## Instructions
-### Environment
-The code is developed under the following settings:
-- Hardware: >=1 GPU for training, >=1 GPU for testing
-- Software: Ubuntu (Version TBD), CUDA>=8.0, Python>=3.5, PyTorch>=0.4.0
-Dependencies: numpy, scipy, opencv, yacs, tqdm
-
-Step 1: Download CARLA Deterministic Data for 4 weathers and ensure that data is in a folder called new_data (1995 images per weather).:
-
-
-Step 2: cd to the main folder
-
-Step 3:
-Install Miniconda
-Setup Dependencies
-```bash
-conda create -n myenv python=python_version 
-conda activate myenv
-pip3 install torch, numpy, scipy, yacs, tqdm
+```mermaid
+flowchart LR
+    A["CARLA RGB + semantic cameras"] --> B["Notebook preprocessing"]
+    B --> C["ODGT manifests"]
+    C --> D["PyTorch dataset loader"]
+    E["Weather-specific YAML config"] --> F["HRNetV2 or MobileNetV2 encoder"]
+    D --> F
+    F --> G["C1 or PPM decoder"]
+    G --> H["29-class predictions"]
+    H --> I["Accuracy and per-class IoU"]
+    H --> J["RGB / label / prediction output"]
 ```
 
-### Training 
-Step 4:
-To train the model, first run the notebook to create an odgt for the weather scenario to be trained on: 
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `config/` | Weather-specific training and mixed-weather fine-tuning configurations |
+| `data/` | CARLA color map and ODGT manifest generator |
+| `scripts/` | Data preparation and result-analysis notebooks |
+| `mit_semseg/` | Upstream segmentation framework plus project model changes |
+| `train.py` | Multi-GPU training entry point |
+| `eval_multipro.py` | Cross-weather evaluation and visualization entry point |
+| `test.py` | Inference on an image directory |
+
+## Installation
+
+Training requires an NVIDIA GPU and a PyTorch build compatible with the host CUDA driver. The code imports and the CARLA model configuration are checked in CI on Python 3.10; full training is not run in CI.
+
 ```bash
-/root/scripts/mixeddatapreprocessing.ipynb
-```
-Move odgt files to new_data folder. 
+git clone https://github.com/bzhao-1/carla-weather-segmentation.git
+cd carla-weather-segmentation
 
-Step 5:
-Train our model by selecting the number of ($GPUS) and configuration file ($CFG). During training, checkpoints by default are saved in folder called ckpt.
-Our base configuration files can be found in /root/cfg. Ensure that data directories in configuration files point to where odgt files are located for training and validation. 
-Example(Train on clear day): 
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
+
+For GPU training, install the correct PyTorch wheel for your CUDA environment before installing the remaining requirements. See the [PyTorch installation selector](https://pytorch.org/get-started/locally/).
+
+## Data preparation
+
+The original experiments used four deterministic CARLA weather datasets with 1,995 images each and an 80/10/10 train/validation/test split. Those datasets are not included.
+
+Expected local structure:
+
+```text
+new_data/
+├── images/<weather>/...
+├── annotations/<weather>/...
+└── odgt_<weather>/
+    ├── train.odgt
+    ├── validate.odgt
+    └── test.odgt
+```
+
+The notebooks in `scripts/` document the original preprocessing workflow. Update their input paths for your CARLA export, then ensure the generated ODGT paths match the selected file under `config/`.
+
+For a simpler image/annotation directory, `data/odgt.py` can generate manifests directly:
+
 ```bash
-python3 train.py --gpu 0 --cfg config/ade20k-hrnetv2-CARLADAYCLEAR.yaml
+python data/odgt.py --data-dir ./data --output-dir ./data
 ```
-GPUS can be a specified number from 0-7 or a specific subset(0,1,3,5). 
 
-### Testing(without metrics) 
-Step 6:
-Testing without metrics can be done by setting the test image folder under ($IMGS):
+## Training and evaluation
+
+Train the clear-day HRNetV2 model on GPU 0:
+
 ```bash
-python3 -u test.py --imgs testrandomimages/ --gpu 0 --cfg config/ade20k-mobilenetv2dilated-c1_deepsup-custom.yaml
+python train.py --gpu 0 --cfg config/ade20k-hrnetv2-CARLADAYCLEAR.yaml
 ```
 
-### Evaluation(with metrics) 
-Step 7:
-Set flag for visualization to be True for three column outputs. From left to right(RGB Image, GT, Prediction):
+Evaluate a checkpoint on a different weather set:
+
 ```bash
-python3 eval_multipro.py --gpus 0 --cfg config/ade20k-hrnetv2-CARLADAYCLEAR.yaml --test_set ./new_data/odgt_foggy_day
+python eval_multipro.py \
+  --gpus 0 \
+  --cfg config/ade20k-hrnetv2-CARLADAYCLEAR.yaml \
+  --test_set ./new_data/odgt_foggy_day
 ```
-By default, you can omit $TEST_SET flag for each weather to test on own weather. You can also test on any other weather by including the flag. 
 
-## Reference
+Checkpoints are expected under the `DIR` configured in the YAML file. Evaluation images are written beneath that checkpoint directory. Both data and checkpoints are ignored by Git.
 
-Semantic Understanding of Scenes through ADE20K Dataset. B. Zhou, H. Zhao, X. Puig, T. Xiao, S. Fidler, A. Barriuso and A. Torralba. International Journal on Computer Vision (IJCV), 2018. (https://arxiv.org/pdf/1608.05442.pdf)
+## Reproducibility status
 
-    @article{zhou2018semantic,
-      title={Semantic understanding of scenes through the ade20k dataset},
-      author={Zhou, Bolei and Zhao, Hang and Puig, Xavier and Xiao, Tete and Fidler, Sanja and Barriuso, Adela and Torralba, Antonio},
-      journal={International Journal on Computer Vision},
-      year={2018}
-    }
+- CI parses all CARLA YAML files and verifies their paths, class counts, and required model settings.
+- Python source is compiled in CI to catch syntax regressions.
+- The HRNetV2 encoder and C1 decoder can be constructed with a modern PyTorch installation.
+- Dataset generation now uses caller-provided paths instead of a developer-specific absolute path.
+- Full metric reproduction still requires the original CARLA dataset, split manifests, GPU environment, and trained checkpoints.
 
-Scene Parsing through ADE20K Dataset. B. Zhou, H. Zhao, X. Puig, S. Fidler, A. Barriuso and A. Torralba. Computer Vision and Pattern Recognition (CVPR), 2017. (http://people.csail.mit.edu/bzhou/publication/scene-parse-camera-ready.pdf)
+## Known limitations
 
-    @inproceedings{zhou2017scene,
-        title={Scene Parsing through ADE20K Dataset},
-        author={Zhou, Bolei and Zhao, Hang and Puig, Xavier and Fidler, Sanja and Barriuso, Adela and Torralba, Antonio},
-        booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
-        year={2017}
-    }
-    
+- This is a preserved research artifact, not a maintained production training platform.
+- The checked-in notebooks describe exploratory workflows and may need adaptation to a new CARLA export.
+- The exact GPU/CUDA stack from the original experiments was not recorded.
+- No raw dataset or model checkpoint is redistributed.
+
+## License and attribution
+
+The repository retains the upstream [BSD 3-Clause license](LICENSE). Original upstream copyright remains with MIT CSAIL. The CARLA-specific work was completed as a team project at Carleton College; see [CONTRIBUTIONS.md](CONTRIBUTIONS.md) and the Git history for details.

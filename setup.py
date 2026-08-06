@@ -5,12 +5,12 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='mit_semseg',
-    version='1.0.0',
-    author='MIT CSAIL',
-    description='Pytorch implementation for Semantic Segmentation/Scene Parsing on MIT ADE20K dataset',
+    version='0.1.0',
+    author='CV4AD team; based on MIT CSAIL',
+    description='CARLA weather-robustness experiments based on MIT semantic-segmentation-pytorch',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/CSAILVision/semantic-segmentation-pytorch',
+    url='https://github.com/bzhao-1/carla-weather-segmentation',
     packages=setuptools.find_packages(),
     classifiers=(
         'Programming Language :: Python :: 3',
@@ -19,11 +19,13 @@ setuptools.setup(
     ),
     install_requires=[
         'numpy',
-        'torch>=0.4.1',
+        'torch>=2.0',
         'torchvision',
         'opencv-python',
         'yacs',
         'scipy',
-        'tqdm'
+        'tqdm',
+        'Pillow>=9.0',
+        'PyYAML>=6.0'
     ]
 )

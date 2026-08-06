@@ -47,7 +47,11 @@ def evaluate(segmentation_module, loader, cfg, gpu_id, result_queue):
         full_dir_name = os.path.basename(os.path.dirname(os.path.dirname(cfg.DATASET.list_val)))
         resolved_dir = os.path.realpath(cfg.DIR)
         weather_type = loader.dataset.root_dataset.split('/')[-1]
-        base_result_dir = os.path.join("/home/zhaob/Desktop/semantic-segmentation-pytorch/ckpt", f"{resolved_dir.split('/')[-1]}{weather_type}")
+        base_result_dir = os.path.join(
+            resolved_dir,
+            "result",
+            f"{os.path.basename(resolved_dir)}-{weather_type}",
+        )
         if not os.path.exists(base_result_dir):
             os.makedirs(base_result_dir)
         test_set_name = '_'.join(full_dir_name.split('_')[2:])
